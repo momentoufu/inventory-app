@@ -1,284 +1,39 @@
-let products = loadProducts();
+const PRODUCTS_KEY="inventoryProducts",SHOPS_KEY="inventoryShops";let products=loadProducts(),shops=loadShops();
 
-function loadProducts() {
-    const data = localStorage.getItem("inventoryProducts");
-    if (!data) return [];
+function loadProducts(){const d=localStorage.getItem(PRODUCTS_KEY);if(!d)return[];try{return JSON.parse(d).map(p=>({id:p.id||createId(),name:p.name||"",category:p.category||"食品",stock:Number(p.stock)||0,minimumStock:Number(p.minimumStock)||0,shops:Array.isArray(p.shops)?p.shops:(p.shop?[p.shop]:[]),purchaseHistory:Array.isArray(p.purchaseHistory)?p.purchaseHistory.slice(0,5):[]}))}catch(e){return[]}}
+function loadShops(){const d=localStorage.getItem(SHOPS_KEY);if(!d)return["スーパー","ドラッグストア","Amazon"];try{const a=JSON.parse(d);return Array.isArray(a)?a:[]}catch(e){return[]}}
+function saveProducts(){localStorage.setItem(PRODUCTS_KEY,JSON.stringify(products))}
+function saveShops(){localStorage.setItem(SHOPS_KEY,JSON.stringify(shops))}
+function createId(){return Date.now().toString()+Math.random().toString(16).slice(2)}
+function escapeHtml(v){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
+function escapeJs(v){return String(v).replace(/\/g,"\\").replace(/'/g,"\'").replace(/\r/g,"\r").replace(/\n/g,"\n")}
 
-    try {
-        return JSON.parse(data);
-    } catch (error) {
-        console.error("データの読み込みに失敗しました。", error);
-        return [];
-    }
-}
+document.querySelectorAll(".tab-button").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
+function switchTab(t){document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));document.querySelectorAll(".tab-content").forEach(s=>s.classList.toggle("active",s.id===t));renderAll()}
 
-function saveProducts() {
-    localStorage.setItem("inventoryProducts", JSON.stringify(products));
-}
+document.getElementById("productForm").addEventListener("submit",e=>{e.preventDefault();const name=document.getElementById("productName").value.trim(),category=document.getElementById("category").value,stock=Number(document.getElementById("stock").value),minimumStock=Number(document.getElementById("minimumStock").value),selected=Array.from(document.querySelectorAll("#shopCheckboxes input:checked")).map(x=>x.value);if(!name)return alert("商品名を入力してください。");if(!selected.length)return alert("買う場所を1つ以上選択してください。");products.push({id:createId(),name,category,stock:Math.max(0,stock),minimumStock:Math.max(0,minimumStock),shops:selected,purchaseHistory:[]});saveProducts();alert("商品を登録しました。");e.target.reset();document.getElementById("stock").value=0;document.getElementById("minimumStock").value=1;switchTab("inventory")});
 
-function createId() {
-    return Date.now().toString() + Math.random().toString(16).slice(2);
-}
+document.getElementById("shopForm").addEventListener("submit",e=>{e.preventDefault();const i=document.getElementById("shopName"),n=i.value.trim();if(!n)return;if(shops.includes(n))return alert("同じ買う場所がすでに登録されています。");shops.push(n);saveShops();i.value="";renderShopMaster();renderShopCheckboxes()});
+function deleteShop(n){const used=products.filter(p=>p.shops.includes(n));if(used.length)return alert("この買う場所を使用している商品があります。\n先に商品から外してください。");if(confirm(`「${n}」を削除しますか？`)){shops=shops.filter(s=>s!==n);saveShops();renderAll()}}
+function renderShopMaster(){const l=document.getElementById("shopMasterList");l.innerHTML=shops.length?shops.map(s=>`<div class="shop-master-item"><span>${escapeHtml(s)}</span><button class="shop-master-delete" onclick="deleteShop('${escapeJs(s)}')">削除</button></div>`).join(""):'<div class="empty-message">買う場所がありません。</div>'}
+function renderShopCheckboxes(){const c=document.getElementById("shopCheckboxes");c.innerHTML=shops.length?shops.map(s=>`<label class="checkbox-item"><input type="checkbox" value="${escapeHtml(s)}"><span>${escapeHtml(s)}</span></label>`).join(""):'<div class="help-text">「その他」から買う場所を登録してください。</div>'}
 
-document.querySelectorAll(".tab-button").forEach(button => {
-    button.addEventListener("click", () => switchTab(button.dataset.tab));
-});
+function renderInventory(){const l=document.getElementById("inventoryList"),cat=document.getElementById("categoryFilter").value,q=document.getElementById("searchInput").value.trim().toLowerCase();let a=products.filter(p=>(cat==="すべて"||p.category===cat)&&p.name.toLowerCase().includes(q));if(!a.length)return l.innerHTML='<div class="empty-message">商品がありません。</div>';a.sort((x,y)=>x.category===y.category?x.name.localeCompare(y.name,"ja"):(x.category==="食品"?-1:1));l.innerHTML=a.map(card).join("")}
+function card(p){const tags=p.shops.map(s=>`<span class="shop-tag">${escapeHtml(s)}</span>`).join("");return `<div class="product-card"><div class="product-name">${escapeHtml(p.name)}</div><div class="category">${escapeHtml(p.category)}</div><div class="stock-area"><button class="stock-button" onclick="changeStock('${escapeJs(p.id)}',-1)">−</button><div class="stock-number">${p.stock}</div><button class="stock-button" onclick="changeStock('${escapeJs(p.id)}',1)">＋</button></div>${p.stock<=p.minimumStock?'<div class="low-stock">要補充</div>':""}<div class="shop-name">買う場所</div><div class="shop-tags">${tags}</div><div>最低在庫：${p.minimumStock}</div><div class="product-actions"><button class="small-button" onclick="showDetail('${escapeJs(p.id)}')">詳細</button><button class="small-button delete-button" onclick="deleteProduct('${escapeJs(p.id)}')">削除</button></div></div>`}
+function changeStock(id,n){const p=products.find(x=>x.id===id);if(!p)return;p.stock=Math.max(0,p.stock+n);saveProducts();renderAll()}
 
-function switchTab(tabName) {
-    document.querySelectorAll(".tab-button").forEach(button => {
-        button.classList.toggle("active", button.dataset.tab === tabName);
-    });
+function showDetail(id){const p=products.find(x=>x.id===id);if(!p)return;const h=p.purchaseHistory||[];document.getElementById("modalBody").innerHTML=`<h2>${escapeHtml(p.name)}</h2><p>カテゴリ：${escapeHtml(p.category)}</p><p>現在庫：<strong>${p.stock}</strong></p><p>最低在庫：${p.minimumStock}</p><p>買う場所</p><div class="shop-tags">${p.shops.map(s=>`<span class="shop-tag">${escapeHtml(s)}</span>`).join("")}</div><hr><h3>購入する</h3><div class="form-group"><label>購入数<input id="purchaseQuantity" type="number" min="1" value="1"></label></div><button class="primary-button" onclick="purchase('${escapeJs(p.id)}')">購入する</button><div class="history"><h3>購入履歴（直近5回）</h3>${h.length?h.map(x=>`<div class="history-item">${escapeHtml(x.date)}：${x.quantity}個</div>`).join(""):"<p>購入履歴はありません。</p>"}</div>`;document.getElementById("modal").classList.remove("hidden")}
+function purchase(id){const p=products.find(x=>x.id===id),n=Number(document.getElementById("purchaseQuantity").value);if(!p||n<=0)return alert("購入数を入力してください。");p.stock+=n;const d=new Date(),date=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;p.purchaseHistory.unshift({date,quantity:n});p.purchaseHistory=p.purchaseHistory.slice(0,5);saveProducts();closeModal();renderAll()}
 
-    document.querySelectorAll(".tab-content").forEach(section => {
-        section.classList.toggle("active", section.id === tabName);
-    });
+function renderShoppingList(){const l=document.getElementById("shoppingList"),need=products.filter(p=>p.stock<=p.minimumStock),groups={};need.forEach(p=>p.shops.forEach(s=>(groups[s]??=[]).push(p)));if(!Object.keys(groups).length)return l.innerHTML='<div class="empty-message">買うものはありません。</div>';l.innerHTML=Object.entries(groups).map(([s,a])=>`<div class="shopping-group"><h3>${escapeHtml(s)}</h3>${a.map(p=>`<div class="shopping-item"><div class="shopping-item-header"><div><strong>${escapeHtml(p.name)}</strong><br>現在庫：${p.stock}</div><button class="buy-button" onclick="showDetail('${escapeJs(p.id)}')">買った</button></div></div>`).join("")}</div>`).join("")}
+function deleteProduct(id){const p=products.find(x=>x.id===id);if(p&&confirm(`「${p.name}」を削除しますか？`)){products=products.filter(x=>x.id!==id);saveProducts();renderAll()}}
 
-    renderAll();
-}
+document.getElementById("closeModal").addEventListener("click",closeModal);function closeModal(){document.getElementById("modal").classList.add("hidden")}
+document.getElementById("categoryFilter").addEventListener("change",renderInventory);document.getElementById("searchInput").addEventListener("input",renderInventory);
 
-document.getElementById("productForm").addEventListener("submit", function(event) {
-    event.preventDefault();
+document.getElementById("backupButton").addEventListener("click",()=>{const data={appName:"在庫管理",version:2,exportedAt:new Date().toISOString(),products,shops},blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a"),d=new Date();a.href=url;a.download=`在庫管理_バックアップ_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)});
+document.getElementById("restoreButton").addEventListener("click",()=>document.getElementById("restoreFile").click());
+document.getElementById("restoreFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=x=>{try{const d=JSON.parse(x.target.result);if(!Array.isArray(d.products)||!Array.isArray(d.shops))throw Error();if(!confirm("現在のデータをバックアップで置き換えます。よろしいですか？"))return;products=d.products.map(p=>({id:p.id||createId(),name:p.name||"",category:p.category||"食品",stock:Number(p.stock)||0,minimumStock:Number(p.minimumStock)||0,shops:Array.isArray(p.shops)?p.shops:(p.shop?[p.shop]:[]),purchaseHistory:Array.isArray(p.purchaseHistory)?p.purchaseHistory.slice(0,5):[]}));shops=[...new Set(d.shops.filter(s=>typeof s==="string"))];saveProducts();saveShops();renderAll();alert("復元しました。")}catch(err){alert("バックアップファイルを読み込めませんでした。")}finally{e.target.value=""}};r.readAsText(f,"UTF-8")});
 
-    const name = document.getElementById("productName").value.trim();
-    const category = document.getElementById("category").value;
-    const stock = Number(document.getElementById("stock").value);
-    const minimumStock = Number(document.getElementById("minimumStock").value);
-    const shop = document.getElementById("shop").value.trim();
-
-    if (!name || !shop) {
-        alert("商品名と買う場所を入力してください。");
-        return;
-    }
-
-    products.push({
-        id: createId(),
-        name,
-        category,
-        stock,
-        minimumStock,
-        shop,
-        purchaseHistory: []
-    });
-
-    saveProducts();
-    alert("商品を登録しました。");
-
-    this.reset();
-    document.getElementById("stock").value = 0;
-    document.getElementById("minimumStock").value = 1;
-
-    switchTab("inventory");
-});
-
-function renderInventory() {
-    const list = document.getElementById("inventoryList");
-    const category = document.getElementById("categoryFilter").value;
-    const search = document.getElementById("searchInput").value.trim().toLowerCase();
-
-    let filteredProducts = products.filter(product => {
-        const categoryMatch = category === "すべて" || product.category === category;
-        const searchMatch = product.name.toLowerCase().includes(search);
-        return categoryMatch && searchMatch;
-    });
-
-    if (filteredProducts.length === 0) {
-        list.innerHTML = '<div class="empty-message">商品がありません。</div>';
-        return;
-    }
-
-    filteredProducts.sort((a, b) => {
-        if (a.category === b.category) return a.name.localeCompare(b.name, "ja");
-        return a.category === "食品" ? -1 : 1;
-    });
-
-    list.innerHTML = filteredProducts.map(createProductCard).join("");
-}
-
-function createProductCard(product) {
-    const isLowStock = product.stock <= product.minimumStock;
-
-    return `
-        <div class="product-card">
-            <div class="product-header">
-                <div>
-                    <div class="product-name">${escapeHtml(product.name)}</div>
-                    <div class="category">${escapeHtml(product.category)}</div>
-                </div>
-            </div>
-
-            <div class="stock-area">
-                <button class="stock-button" onclick="changeStock('${product.id}', -1)">−</button>
-                <div class="stock-number">${product.stock}</div>
-                <button class="stock-button" onclick="changeStock('${product.id}', 1)">＋</button>
-            </div>
-
-            ${isLowStock ? '<div class="low-stock">要補充</div>' : ""}
-
-            <div class="shop-name">買う場所：${escapeHtml(product.shop)}</div>
-            <div>最低在庫：${product.minimumStock}</div>
-
-            <div class="product-actions">
-                <button class="small-button" onclick="showProductDetail('${product.id}')">詳細</button>
-                <button class="small-button delete-button" onclick="deleteProduct('${product.id}')">削除</button>
-            </div>
-        </div>
-    `;
-}
-
-function changeStock(id, amount) {
-    const product = products.find(product => product.id === id);
-    if (!product) return;
-
-    product.stock += amount;
-    if (product.stock < 0) product.stock = 0;
-
-    saveProducts();
-    renderAll();
-}
-
-function showProductDetail(id) {
-    const product = products.find(product => product.id === id);
-    if (!product) return;
-
-    const history = product.purchaseHistory || [];
-
-    const historyHtml = history.length === 0
-        ? "<p>購入履歴はありません。</p>"
-        : history.map(item => `
-            <div class="history-item">${item.date}：${item.quantity}個</div>
-        `).join("");
-
-    document.getElementById("modalBody").innerHTML = `
-        <h2>${escapeHtml(product.name)}</h2>
-        <p>カテゴリ：${escapeHtml(product.category)}</p>
-        <p>現在庫：<strong>${product.stock}</strong></p>
-        <p>最低在庫：${product.minimumStock}</p>
-        <p>買う場所：${escapeHtml(product.shop)}</p>
-
-        <hr>
-
-        <h3>購入する</h3>
-        <div class="form-group">
-            <label>購入数</label>
-            <input type="number" id="purchaseQuantity" min="1" value="1">
-        </div>
-
-        <button class="primary-button" onclick="purchaseProduct('${product.id}')">
-            購入する
-        </button>
-
-        <div class="history">
-            <h3>購入履歴（直近3回）</h3>
-            ${historyHtml}
-        </div>
-    `;
-
-    document.getElementById("modal").classList.remove("hidden");
-}
-
-function purchaseProduct(id) {
-    const product = products.find(product => product.id === id);
-    if (!product) return;
-
-    const quantity = Number(document.getElementById("purchaseQuantity").value);
-
-    if (!quantity || quantity <= 0) {
-        alert("購入数を入力してください。");
-        return;
-    }
-
-    product.stock += quantity;
-
-    const now = new Date();
-    const date =
-        now.getFullYear() + "/" +
-        String(now.getMonth() + 1).padStart(2, "0") + "/" +
-        String(now.getDate()).padStart(2, "0");
-
-    product.purchaseHistory.unshift({
-        date,
-        quantity
-    });
-
-    product.purchaseHistory = product.purchaseHistory.slice(0, 3);
-
-    saveProducts();
-    closeModal();
-    renderAll();
-}
-
-function renderShoppingList() {
-    const list = document.getElementById("shoppingList");
-
-    const needToBuy = products.filter(product =>
-        product.stock <= product.minimumStock
-    );
-
-    if (needToBuy.length === 0) {
-        list.innerHTML = '<div class="empty-message">買うものはありません。</div>';
-        return;
-    }
-
-    const groups = {};
-
-    needToBuy.forEach(product => {
-        if (!groups[product.shop]) groups[product.shop] = [];
-        groups[product.shop].push(product);
-    });
-
-    list.innerHTML = Object.entries(groups).map(([shop, shopProducts]) => `
-        <div class="shopping-group">
-            <h3>${escapeHtml(shop)}</h3>
-            ${shopProducts.map(product => `
-                <div class="shopping-item">
-                    <div class="shopping-item-header">
-                        <div>
-                            <strong>${escapeHtml(product.name)}</strong><br>
-                            現在庫：${product.stock}
-                        </div>
-                        <button class="buy-button"
-                            onclick="showProductDetail('${product.id}')">
-                            買った
-                        </button>
-                    </div>
-                </div>
-            `).join("")}
-        </div>
-    `).join("");
-}
-
-function deleteProduct(id) {
-    const product = products.find(product => product.id === id);
-    if (!product) return;
-
-    if (!confirm(`「${product.name}」を削除しますか？`)) return;
-
-    products = products.filter(product => product.id !== id);
-    saveProducts();
-    renderAll();
-}
-
-document.getElementById("closeModal").addEventListener("click", closeModal);
-
-function closeModal() {
-    document.getElementById("modal").classList.add("hidden");
-}
-
-document.getElementById("categoryFilter").addEventListener("change", renderInventory);
-document.getElementById("searchInput").addEventListener("input", renderInventory);
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function renderAll() {
-    renderInventory();
-    renderShoppingList();
-}
-
+function renderAll(){renderInventory();renderShoppingList();renderShopCheckboxes();renderShopMaster()}
 renderAll();
