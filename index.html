@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在庫管理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>在庫管理</h1></header>
+
+<nav class="tabs">
+    <button class="tab-button active" data-tab="inventory">在庫</button>
+    <button class="tab-button" data-tab="shopping">買うもの</button>
+    <button class="tab-button" data-tab="add">商品登録</button>
+</nav>
+
+<main>
+    <section id="inventory" class="tab-content active">
+        <h2>在庫一覧</h2>
+        <div class="filter-area">
+            <label>カテゴリ
+                <select id="categoryFilter">
+                    <option value="すべて">すべて</option>
+                    <option value="食品">食品</option>
+                    <option value="日用品">日用品</option>
+                </select>
+            </label>
+            <label>検索
+                <input type="text" id="searchInput" placeholder="商品名を入力">
+            </label>
+        </div>
+        <div id="inventoryList"></div>
+    </section>
+
+    <section id="shopping" class="tab-content">
+        <h2>買うもの</h2>
+        <div id="shoppingList"></div>
+    </section>
+
+    <section id="add" class="tab-content">
+        <h2>商品登録</h2>
+        <form id="productForm">
+            <div class="form-group">
+                <label for="productName">商品名</label>
+                <input type="text" id="productName" placeholder="例：牛乳" required>
+            </div>
+            <div class="form-group">
+                <label for="category">カテゴリ</label>
+                <select id="category" required>
+                    <option value="食品">食品</option>
+                    <option value="日用品">日用品</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="stock">現在庫</label>
+                <input type="number" id="stock" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="minimumStock">最低在庫</label>
+                <input type="number" id="minimumStock" min="0" value="1" required>
+            </div>
+            <div class="form-group">
+                <label for="shop">買う場所</label>
+                <input type="text" id="shop" placeholder="例：スーパー" required>
+            </div>
+            <button type="submit" class="primary-button">商品を登録</button>
+        </form>
+    </section>
+</main>
+
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <button id="closeModal" class="close-button">×</button>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
